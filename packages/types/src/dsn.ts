@@ -6,7 +6,9 @@ export interface DsnComponents {
   /** Protocol used to connect to Sentry. */
   protocol: DsnProtocol;
   /** Public authorization key. */
-  user: string;
+  user?: string;
+  /** Public authorization key. */
+  publicKey?: string;
   /** Private authorization key (deprecated, optional). */
   pass?: string;
   /** Hostname of the Sentry instance. */

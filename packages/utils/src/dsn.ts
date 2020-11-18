@@ -1,6 +1,7 @@
 import { DsnComponents, DsnLike, DsnProtocol } from '@sentry/types';
 
 import { SentryError } from './error';
+import { logger } from './logger';
 
 /** Regular expression used to parse a Dsn. */
 const DSN_REGEX = /^(?:(\w+):)\/\/(?:(\w+)(?::(\w+))?@)([\w.-]+)(?::(\d+))?\/(.+)/;
@@ -12,8 +13,10 @@ const ERROR_MESSAGE = 'Invalid Dsn';
 export class Dsn implements DsnComponents {
   /** Protocol used to connect to Sentry. */
   public protocol!: DsnProtocol;
-  /** Public authorization key. */
+  /** [Deprecated] Public authorization key. */
   public user!: string;
+  /** Public authorization key. */
+  public publicKey!: string;
   /** Private authorization key (deprecated, optional). */
   public pass!: string;
   /** Hostname of the Sentry instance. */
@@ -46,9 +49,9 @@ export class Dsn implements DsnComponents {
    * @param withPassword When set to true, the password will be included.
    */
   public toString(withPassword: boolean = false): string {
-    const { host, path, pass, port, projectId, protocol, user } = this;
+    const { host, path, pass, port, projectId, protocol, publicKey } = this;
     return (
-      `${protocol}://${user}${withPassword && pass ? `:${pass}` : ''}` +
+      `${protocol}://${publicKey}${withPassword && pass ? `:${pass}` : ''}` +
       `@${host}${port ? `:${port}` : ''}/${path ? `${path}/` : path}${projectId}`
     );
   }
@@ -61,7 +64,7 @@ export class Dsn implements DsnComponents {
       throw new SentryError(ERROR_MESSAGE);
     }
 
-    const [protocol, user, pass = '', host, port = '', lastPath] = match.slice(1);
+    const [protocol, publicKey, pass = '', host, port = '', lastPath] = match.slice(1);
     let path = '';
     let projectId = lastPath;
 
@@ -78,13 +81,20 @@ export class Dsn implements DsnComponents {
       }
     }
 
-    this._fromComponents({ host, pass, path, projectId, port, protocol: protocol as DsnProtocol, user });
+    this._fromComponents({ host, pass, path, projectId, port, protocol: protocol as DsnProtocol, publicKey });
   }
 
   /** Maps Dsn components into this instance. */
   private _fromComponents(components: DsnComponents): void {
+    if ('user' in components && !('publicKey' in components)) {
+      logger.warn('Use of `user` in DsnComponents is deprecated. Please use `publicKey` instead.');
+      components.publicKey = components.user;
+    }
+    // for backwards compatibility - can be removed in a future version
+    this.user = components.publicKey || '';
+
     this.protocol = components.protocol;
-    this.user = components.user;
+    this.publicKey = components.publicKey || '';
     this.pass = components.pass || '';
     this.host = components.host;
     this.port = components.port || '';
@@ -94,7 +104,7 @@ export class Dsn implements DsnComponents {
 
   /** Validates this Dsn and throws on error. */
   private _validate(): void {
-    ['protocol', 'user', 'host', 'projectId'].forEach(component => {
+    ['protocol', 'publicKey', 'host', 'projectId'].forEach(component => {
       if (!this[component as keyof DsnComponents]) {
         throw new SentryError(`${ERROR_MESSAGE}: ${component} missing`);
       }
