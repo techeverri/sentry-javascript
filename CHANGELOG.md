@@ -4,6 +4,10 @@
 
 - "You miss 100 percent of the chances you don't take. — Wayne Gretzky" — Michael Scott
 
+## 5.27.7-beta.0
+
+- [tracing] ref: Send correlation context for dynamic sampling in envelope header
+
 ## 5.27.6
 
 - [hub] fix: Don't invoke scope updates in scope listeners
