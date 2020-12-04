@@ -30,6 +30,11 @@ describe('eventToSentryRequest', () => {
       event_id: eventId,
       release: 'off.leash.park',
       spans: [],
+      tracestate:
+        'ewAiAGUAbgB2AGkAcgBvAG4AbQBlAG4AdAAiADoAIgBkAG8AZwBwAGEAcgBrACIALAAiAHAAdQBiAGwAaQBjAF8AawBlAHkAIgA6ACIAZAB' +
+        'vAGcAcwBhAHIAZQBiAGEAZABhAHQAawBlAGUAcABpAG4AZwBzAGUAYwByAGUAdABzACIALAAiAHIAZQBsAGUAYQBzAGUAIgA6ACIAbwBmAG' +
+        'YALgBsAGUAYQBzAGgALgBwAGEAcgBrACIALAAiAHQAcgBhAGMAZQBfAGkAZAAiADoAIgAwADkAMAA4ADIAMAAxADMAMAA0ADEANQAyADAAM' +
+        'QAzACIAfQA.',
       transaction: '/dogs/are/great/',
       type: 'transaction',
       user: { id: '1121', username: 'CharlieDog', ip_address: '11.21.20.12' },
@@ -52,12 +57,12 @@ describe('eventToSentryRequest', () => {
     expect(envelope.envelopeHeader).toEqual({
       event_id: eventId,
       sent_at: expect.any(String),
-      trace: {
+      trace: JSON.stringify({
         environment: 'dogpark',
         public_key: 'dogsarebadatkeepingsecrets',
         release: 'off.leash.park',
         trace_id: traceId,
-      },
+      }),
     });
     expect(envelope.itemHeader).toEqual({ type: 'transaction' });
     expect(envelope.event).toEqual(event);
