@@ -4,7 +4,7 @@ import { WrappedFunction } from '@sentry/types';
 
 import { isInstanceOf, isString } from './is';
 import { logger } from './logger';
-import { getGlobalObject } from './misc';
+import { getGlobalObject } from './compat';
 import { fill } from './object';
 import { getFunctionName } from './stacktrace';
 import { supportsHistory, supportsNativeFetch } from './supports';
