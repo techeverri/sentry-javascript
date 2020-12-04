@@ -1,18 +1,21 @@
 import { getCurrentHub, Hub } from '@sentry/hub';
 import { Event, Measurements, Transaction as TransactionInterface, TransactionContext } from '@sentry/types';
-import { isInstanceOf, logger } from '@sentry/utils';
+import { isInstanceOf, logger, unicodeToBase64 } from '@sentry/utils';
 
 import { Span as SpanClass, SpanRecorder } from './span';
 
 /** JSDoc */
 export class Transaction extends SpanClass implements TransactionInterface {
   public name: string;
+
+  public readonly tracestate: string;
+
   private _measurements: Measurements = {};
 
   /**
    * The reference to the current hub.
    */
-  private readonly _hub: Hub = (getCurrentHub() as unknown) as Hub;
+  private readonly _hub: Hub;
 
   private readonly _trimEnd?: boolean;
 
@@ -26,13 +29,15 @@ export class Transaction extends SpanClass implements TransactionInterface {
   public constructor(transactionContext: TransactionContext, hub?: Hub) {
     super(transactionContext);
 
-    if (isInstanceOf(hub, Hub)) {
-      this._hub = hub as Hub;
-    }
+    this._hub = hub && isInstanceOf(hub, Hub) ? hub : getCurrentHub();
 
-    this.name = transactionContext.name ? transactionContext.name : '';
+    this.name = transactionContext.name || '';
 
     this._trimEnd = transactionContext.trimEnd;
+
+    // _getNewTracestate only returns undefined in the absence of a client or dsn, in which case it doesn't matter what
+    // the header values are - nothing can be sent anyway - so the third alternative here is just to make TS happy
+    this.tracestate = transactionContext.tracestate || this._getNewTracestate() || 'things are broken';
 
     // this is because transactions are also spans, and spans have a transaction pointer
     this.transaction = this;
@@ -98,7 +103,7 @@ export class Transaction extends SpanClass implements TransactionInterface {
       }).endTimestamp;
     }
 
-    const transaction: Event = {
+    const transactionEvent: Event = {
       contexts: {
         trace: this.getTraceContext(),
       },
@@ -106,6 +111,7 @@ export class Transaction extends SpanClass implements TransactionInterface {
       start_timestamp: this.startTimestamp,
       tags: this.tags,
       timestamp: this.endTimestamp,
+      tracestate: this.tracestate,
       transaction: this.name,
       type: 'transaction',
     };
@@ -114,9 +120,49 @@ export class Transaction extends SpanClass implements TransactionInterface {
 
     if (hasMeasurements) {
       logger.log('[Measurements] Adding measurements to transaction', JSON.stringify(this._measurements, undefined, 2));
-      transaction.measurements = this._measurements;
+      transactionEvent.measurements = this._measurements;
     }
 
-    return this._hub.captureEvent(transaction);
+    transactionEvent.tracestate = this.tracestate;
+
+    return this._hub.captureEvent(transactionEvent);
+  }
+
+  /**
+   * Create a new tracestate header value
+   *
+   * @returns The new tracestate value, or undefined if there's no client or no dsn
+   */
+  private _getNewTracestate(): string | undefined {
+    const client = this._hub.getClient();
+    const dsn = client?.getDsn();
+
+    if (!client || !dsn) {
+      return;
+    }
+
+    const { environment, release } = client.getOptions() || {};
+
+    const dataStr = JSON.stringify({
+      trace_id: this.traceId,
+      public_key: dsn.user,
+      environment: environment || 'no environment specified',
+      release: release || 'no release specified',
+    });
+
+    // See https://www.w3.org/TR/trace-context/#tracestate-header-field-values
+    // The spec for tracestate header values calls for a string of the form
+    //
+    //    identifier1=value1,identifier2=value2,...
+    //
+    // which means the value can't include any equals signs, since they already have meaning. Equals signs are commonly
+    // used to pad the end of base64 values though, so we have to make a substitution (periods are legal in the header
+    // but not used in base64).
+    try {
+      return unicodeToBase64(dataStr).replace(/={1,2}$/, '.');
+    } catch (err) {
+      logger.warn(err);
+      return '';
+    }
   }
 }
