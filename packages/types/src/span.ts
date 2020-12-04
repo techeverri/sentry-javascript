@@ -148,6 +148,13 @@ export interface Span extends SpanContext {
   /** Return a traceparent compatible header string */
   toTraceparent(): string;
 
+  /**
+   * Get headers to attach to any outgoing requests made by the operation which created the span
+   *
+   * @returns An object containing the headers
+   */
+  getTraceHeaders(format: 'array' | 'object'): TraceHeadersArr | TraceHeadersObj;
+
   /** Convert the object to JSON for w. spans array info only */
   getTraceContext(): {
     data?: { [key: string]: any };
@@ -159,6 +166,7 @@ export interface Span extends SpanContext {
     tags?: { [key: string]: string };
     trace_id: string;
   };
+
   /** Convert the object to JSON */
   toJSON(): {
     data?: { [key: string]: any };
@@ -173,3 +181,10 @@ export interface Span extends SpanContext {
     trace_id: string;
   };
 }
+
+export type TraceHeadersArr = [['sentry-trace', string], ['tracestate', string]?];
+
+export type TraceHeadersObj = {
+  'sentry-trace': string;
+  tracestate?: string;
+};

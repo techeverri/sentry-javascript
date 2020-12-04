@@ -21,7 +21,7 @@ export { CaptureContext, Scope, ScopeContext } from './scope';
 export { SdkInfo } from './sdkinfo';
 export { Session, SessionContext, SessionStatus } from './session';
 export { Severity } from './severity';
-export { Span, SpanContext } from './span';
+export { Span, SpanContext, TraceHeadersArr, TraceHeadersObj } from './span';
 export { StackFrame } from './stackframe';
 export { Stacktrace } from './stacktrace';
 export { Status } from './status';

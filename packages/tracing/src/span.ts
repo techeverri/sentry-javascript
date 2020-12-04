@@ -1,5 +1,5 @@
 /* eslint-disable max-lines */
-import { Span as SpanInterface, SpanContext, Transaction } from '@sentry/types';
+import { Span as SpanInterface, SpanContext, TraceHeadersArr, TraceHeadersObj, Transaction } from '@sentry/types';
 import { dropUndefinedKeys, timestampWithMs, uuid4 } from '@sentry/utils';
 
 import { SpanStatus } from './spanstatus';
@@ -244,6 +244,31 @@ export class Span implements SpanInterface {
       sampledString = this.sampled ? '-1' : '-0';
     }
     return `${this.traceId}-${this.spanId}${sampledString}`;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public getTraceHeaders(format: 'array' | 'object'): TraceHeadersArr | TraceHeadersObj {
+    let headers;
+    const traceparent = this.toTraceparent();
+    // tracestates live on the transaction, so if this is a free-floating span, there won't be one
+    const tracestate = this.transaction?.tracestate;
+
+    if (format === 'array') {
+      // headers = [['sentry-trace', traceparent], ...(tracestate && [['tracestate', tracestate]])];
+      headers = [['sentry-trace', traceparent]];
+      if (tracestate) {
+        headers.push(['tracestate', tracestate]);
+      }
+
+      return headers as TraceHeadersArr;
+    }
+
+    return {
+      'sentry-trace': traceparent,
+      ...(tracestate && { tracestate }),
+    } as TraceHeadersObj;
   }
 
   /**
