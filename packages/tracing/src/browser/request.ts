@@ -1,4 +1,5 @@
 import { getCurrentHub } from '@sentry/hub';
+import { TraceHeadersObj } from '@sentry/types';
 import { addInstrumentationHandler, isInstanceOf, isMatchingPattern } from '@sentry/utils';
 
 import { Span } from '../span';
@@ -195,14 +196,14 @@ export function fetchCallback(
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       if (typeof headers.append === 'function') {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        headers.append('sentry-trace', span.toTraceparent());
+        headers.append(...span.getTraceHeaders('array'));
       } else if (Array.isArray(headers)) {
-        headers = [...headers, ['sentry-trace', span.toTraceparent()]];
+        headers = [...headers, ...span.getTraceHeaders('array')];
       } else {
-        headers = { ...headers, 'sentry-trace': span.toTraceparent() };
+        headers = { ...headers, ...span.getTraceHeaders('object') };
       }
     } else {
-      headers = { 'sentry-trace': span.toTraceparent() };
+      headers = span.getTraceHeaders('object');
     }
     options.headers = headers;
   }
@@ -261,7 +262,11 @@ export function xhrCallback(
 
     if (handlerData.xhr.setRequestHeader) {
       try {
-        handlerData.xhr.setRequestHeader('sentry-trace', span.toTraceparent());
+        const sentryHeaders = span.getTraceHeaders('object') as TraceHeadersObj;
+        handlerData.xhr.setRequestHeader('sentry-trace', sentryHeaders['sentry-trace']);
+        if (sentryHeaders.tracestate) {
+          handlerData.xhr.setRequestHeader('tracestate', sentryHeaders.tracestate);
+        }
       } catch (_) {
         // Error: InvalidStateError: Failed to execute 'setRequestHeader' on 'XMLHttpRequest': The object's state must be OPENED.
       }
