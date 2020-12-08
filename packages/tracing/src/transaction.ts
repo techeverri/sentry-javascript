@@ -144,7 +144,6 @@ export class Transaction extends SpanClass implements TransactionInterface {
     const { environment, release } = client.getOptions() || {};
 
     const dataStr = JSON.stringify({
-      trace_id: this.traceId,
       public_key: dsn.user,
       environment: environment || 'no environment specified',
       release: release || 'no release specified',
