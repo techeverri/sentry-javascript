@@ -1,5 +1,6 @@
 import { BrowserClient } from '@sentry/browser';
 import { Hub, Scope } from '@sentry/hub';
+import { TraceHeadersArr, TraceHeadersObj } from '@sentry/types';
 
 import { Span, SpanStatus, Transaction } from '../src';
 import { TRACEPARENT_REGEXP } from '../src/utils';
@@ -98,6 +99,45 @@ describe('Span', () => {
     });
     test('with sample', () => {
       expect(new Span({ sampled: true }).toTraceparent()).toMatch(TRACEPARENT_REGEXP);
+    });
+  });
+
+  describe('getTraceHeaders', () => {
+    it('returns correct headers', () => {
+      const hub = new Hub(
+        new BrowserClient({
+          dsn: 'https://dogsarebadatkeepingsecrets@squirrelchasers.ingest.sentry.io/12312012',
+          tracesSampleRate: 1,
+          release: 'off.leash.park',
+          environment: 'dogpark',
+        }),
+      );
+      const transaction = hub.startTransaction({ name: 'FETCH /ball' });
+      const span = transaction.startChild({ op: 'dig.hole' });
+
+      const headers = span.getTraceHeaders('object') as TraceHeadersObj;
+
+      expect(headers['sentry-trace']).toEqual(span.toTraceparent());
+      expect(headers.tracestate).toEqual(transaction.tracestate);
+    });
+
+    it('returns the same data either as an object or an array', () => {
+      const hub = new Hub(
+        new BrowserClient({
+          dsn: 'https://dogsarebadatkeepingsecrets@squirrelchasers.ingest.sentry.io/12312012',
+          tracesSampleRate: 1,
+          release: 'off.leash.park',
+          environment: 'dogpark',
+        }),
+      );
+      const transaction = hub.startTransaction({ name: 'FETCH /ball' });
+      const span = transaction.startChild({ op: 'dig.hole' });
+
+      const headersObj = span.getTraceHeaders('object') as TraceHeadersObj;
+      const headersArr = span.getTraceHeaders('array') as TraceHeadersArr;
+
+      expect(headersObj[headersArr[0][0]]).toEqual(headersArr[0][1]);
+      expect(headersArr[1] && headersObj[headersArr[1][0]]).toEqual(headersArr[1] && headersArr[1][1]);
     });
   });
 
